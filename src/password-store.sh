@@ -16,6 +16,9 @@ PREFIX="${PASSWORD_STORE_DIR:-$HOME/.password-store}"
 X_SELECTION="${PASSWORD_STORE_X_SELECTION:-clipboard}"
 CLIP_TIME="${PASSWORD_STORE_CLIP_TIME:-45}"
 
+SHOW_PASS_OBFUS='{ echo -en "$(tput setaf 1)$(tput setab 1)"; cat -; echo -en "$(tput sgr0)"; }'
+SHOW_PASS_CLEAR='{ cat -; }'
+
 export GIT_DIR="${PASSWORD_STORE_GIT:-$PREFIX}/.git"
 export GIT_WORK_TREE="${PASSWORD_STORE_GIT:-$PREFIX}"
 
@@ -223,9 +226,11 @@ cmd_usage() {
 	        List passwords.
 	    $PROGRAM find pass-names...
 	    	List passwords that match pass-names.
-	    $PROGRAM [show] [--clip,-c] pass-name
+	    $PROGRAM [show] [--clip,-c] [--no-color,-n] [--full,-f] pass-name
 	        Show existing password and optionally put it on the clipboard.
+	        If no color is specified the password will be shown in non-colorized text.
 	        If put on the clipboard, it will be cleared in $CLIP_TIME seconds.
+	        If full is specified the entire contents will be used (copied or displayed), not just the first line
 	    $PROGRAM grep search-string
 	        Search for password files containing search-string when decrypted.
 	    $PROGRAM insert [--echo,-e | --multiline,-m] [--force,-f] pass-name
@@ -294,26 +299,33 @@ cmd_init() {
 }
 
 cmd_show() {
-	local opts clip=0
-	opts="$($GETOPT -o c -l clip -n "$PROGRAM" -- "$@")"
+	local opts clip=0 no_color=0 full=0
+	opts="$($GETOPT -o cnf -l clip,no-color,full -n "$PROGRAM" -- "$@")"
 	local err=$?
 	eval set -- "$opts"
 	while true; do case $1 in
 		-c|--clip) clip=1; shift ;;
+		-n|--no-color) no_color=1; shift ;;
+		-f|--full) full=1; shift ;;
 		--) shift; break ;;
 	esac done
 
-	[[ $err -ne 0 ]] && die "Usage: $PROGRAM $COMMAND [--clip,-c] [pass-name]"
+	[[ $err -ne 0 ]] && die "Usage: $PROGRAM $COMMAND [--clip,-c] [--no-color,-n] [--full,-f] [pass-name]"
 
 	local path="$1"
 	local passfile="$PREFIX/$path.gpg"
 	check_sneaky_paths "$path"
 	if [[ -f $passfile ]]; then
-		if [[ $clip -eq 0 ]]; then
-			$GPG -d "${GPG_OPTS[@]}" "$passfile" || exit $?
+		local pass="$($GPG -d "${GPG_OPTS[@]}" "$passfile")"
+		if [[ $full -eq 0 ]]; then
+			local pass=$(echo "${pass}" | head -n 1 -)
+		fi
+		[[ -n $pass ]] || exit 1
+		if [[ $clip -eq 0 && $no_color -eq 0 ]]; then
+			echo "${pass}" | eval "${SHOW_PASS_OBFUS}"
+		elif [[ $clip -eq 0 ]]; then
+			echo "${pass}" | eval "${SHOW_PASS_CLEAR}"
 		else
-			local pass="$($GPG -d "${GPG_OPTS[@]}" "$passfile" | head -n 1)"
-			[[ -n $pass ]] || exit 1
 			clip "$pass" "$path"
 		fi
 	elif [[ -d $PREFIX/$path ]]; then

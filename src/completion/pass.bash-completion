@@ -80,7 +80,7 @@ _pass()
 				_pass_complete_entries
 				;;
 			show|-*)
-				COMPREPLY+=($(compgen -W "-c --clip" -- ${cur}))
+				COMPREPLY+=($(compgen -W "-c --clip -n --no-color -f --full" -- ${cur}))
 				_pass_complete_entries 1
 				;;
 			insert)

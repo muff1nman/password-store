@@ -108,7 +108,11 @@ _pass () {
 _pass_cmd_show () {
 	_arguments : \
 		"-c[put it on the clipboard]" \
-		"--clip[put it on the clipboard]"
+		"--clip[put it on the clipboard]" \
+		"--full[Output the entire text]" \
+		"-f[Output the entire text]" \
+		"--no-color[Do not colorize output]" \
+		"-n[Do not colorize output]"
 	_pass_complete_entries
 }
 _pass_complete_entries_helper () {
